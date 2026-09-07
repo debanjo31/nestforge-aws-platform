@@ -5,7 +5,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
-import { TaskStatus } from '../src/tasks/enums/task-status.enum';
+import { TaskStatus } from '../src/modules/tasks/enums/task-status.enum';
 
 interface AuthResponseBody {
   accessToken: string;
