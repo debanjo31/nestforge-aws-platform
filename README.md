@@ -59,13 +59,6 @@ postgres (healthy) -> migrations (completed successfully) -> api
 ```text
 nestforge-api/
 |-- src/
-|   |-- auth/
-|   |   |-- dto/
-|   |   |-- guards/
-|   |   |-- strategies/
-|   |   |-- auth.controller.ts
-|   |   |-- auth.module.ts
-|   |   `-- auth.service.ts
 |   |-- common/
 |   |   |-- decorators/
 |   |   |-- filters/
@@ -78,24 +71,32 @@ nestforge-api/
 |   |   |-- migrations/
 |   |   |-- data-source.ts
 |   |   `-- database.module.ts
-|   |-- health/
-|   |   |-- dto/
-|   |   |-- health.controller.ts
-|   |   |-- health.module.ts
-|   |   `-- health.service.ts
-|   |-- tasks/
-|   |   |-- dto/
-|   |   |-- entities/
-|   |   |-- enums/
-|   |   |-- tasks.controller.ts
-|   |   |-- tasks.module.ts
-|   |   `-- tasks.service.ts
-|   |-- users/
-|   |   |-- dto/
-|   |   |-- entities/
-|   |   |-- users.controller.ts
-|   |   |-- users.module.ts
-|   |   `-- users.service.ts
+|   |-- modules/
+|   |   |-- auth/
+|   |   |   |-- dto/
+|   |   |   |-- guards/
+|   |   |   |-- strategies/
+|   |   |   |-- auth.controller.ts
+|   |   |   |-- auth.module.ts
+|   |   |   `-- auth.service.ts
+|   |   |-- health/
+|   |   |   |-- dto/
+|   |   |   |-- health.controller.ts
+|   |   |   |-- health.module.ts
+|   |   |   `-- health.service.ts
+|   |   |-- tasks/
+|   |   |   |-- dto/
+|   |   |   |-- entities/
+|   |   |   |-- enums/
+|   |   |   |-- tasks.controller.ts
+|   |   |   |-- tasks.module.ts
+|   |   |   `-- tasks.service.ts
+|   |   `-- users/
+|   |       |-- dto/
+|   |       |-- entities/
+|   |       |-- users.controller.ts
+|   |       |-- users.module.ts
+|   |       `-- users.service.ts
 |   |-- app.module.ts
 |   `-- main.ts
 |-- test/
