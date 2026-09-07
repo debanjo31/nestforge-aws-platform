@@ -183,3 +183,16 @@ variable "alb_deletion_protection" {
   type        = bool
   default     = true
 }
+
+variable "enable_github_deployment_role" {
+  description = "Create a production GitHub Actions deployment role."
+  type        = bool
+  default     = false
+}
+
+variable "github_oidc_subject" {
+  description = "Exact GitHub OIDC subject allowed to deploy production when enabled."
+  type        = string
+  default     = null
+  nullable    = true
+}

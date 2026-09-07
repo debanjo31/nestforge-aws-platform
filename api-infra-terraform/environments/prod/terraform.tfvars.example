@@ -36,3 +36,7 @@ database_skip_final_snapshot     = false
 log_retention_days             = 30
 enable_container_insights      = true
 secret_recovery_window_in_days = 30
+
+# Production CI/CD remains disabled until a protected production workflow exists.
+enable_github_deployment_role = false
+github_oidc_subject           = null

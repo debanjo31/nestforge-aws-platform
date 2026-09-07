@@ -18,6 +18,11 @@ output "task_definition_arn" {
   value       = aws_ecs_task_definition.api.arn
 }
 
+output "task_definition_family" {
+  description = "Family name used for ECS API task definition revisions."
+  value       = aws_ecs_task_definition.api.family
+}
+
 output "autoscaling_policy_arn" {
   description = "ARN of the ECS CPU target tracking policy."
   value       = aws_appautoscaling_policy.ecs_cpu.arn
