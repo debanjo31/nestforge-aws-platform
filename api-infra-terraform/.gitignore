@@ -1,0 +1,35 @@
+# Terraform working directories and state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+crash.log
+crash.*.log
+
+# Local variable and backend configuration
+*.tfvars
+!*.tfvars.example
+*.tfbackend
+!*.tfbackend.example
+backend*.hcl
+!backend*.hcl.example
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Keep every root module dependency lock file in version control.
+!.terraform.lock.hcl
+
+# Local environment files
+.env
+.env.*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
