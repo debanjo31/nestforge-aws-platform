@@ -142,7 +142,7 @@ terraform -chdir=environments/dev plan -out=dev.tfplan
 terraform -chdir=environments/dev apply dev.tfplan
 ```
 
-`-target` is only used to break the first-image dependency. Normal releases build and push a new immutable tag, update `image_tag`, and use a full Terraform plan. Terraform then creates a new task-definition revision and ECS performs a rolling deployment.
+`-target` is only used to break the first-image dependency. Normal application releases are handled by GitHub Actions and do not run Terraform.
 
 ## Database migrations
 
@@ -153,6 +153,71 @@ node ./node_modules/typeorm/cli.js -d dist/database/data-source.js migration:run
 ```
 
 The task connects directly to RDS on port 5432, applies pending SQL migrations, and exits. Confirm an exit code of `0` before updating the ECS service. Migrations should not run automatically in every API task because simultaneous task starts can race.
+
+## CI/CD
+
+The account-wide GitHub OIDC provider is owned by `bootstrap`. The dev environment creates `nestforge-dev-github-deploy-role`, which can push only to the dev ECR repository, register revisions in the dev task-definition family, run migration tasks in the dev cluster, update the dev service, and pass only the existing ECS execution and task roles.
+
+The role trusts one immutable GitHub repository identity and one branch:
+
+```text
+aud = sts.amazonaws.com
+sub = repo:debanjo31@105072070/nestforge-aws-platform@1360437938:ref:refs/heads/main
+```
+
+There are no AWS access key secrets. Pull requests receive read-only repository permissions and do not authenticate to AWS. The deployment workflow receives `id-token: write` only so it can exchange a GitHub OIDC token for a short-lived AWS role session.
+
+### Apply the CI/CD infrastructure
+
+The current GitHub default branch is `master`; rename it to `main` before using the deployment workflow. Then review and apply the shared identity provider before the environment role:
+
+```powershell
+terraform -chdir=bootstrap plan -out=github-oidc.tfplan
+terraform -chdir=bootstrap apply github-oidc.tfplan
+
+terraform -chdir=environments/dev plan -out=github-deploy-role.tfplan
+terraform -chdir=environments/dev apply github-deploy-role.tfplan
+```
+
+Terraform apply remains an operator-controlled infrastructure action. Neither GitHub workflow runs these commands.
+
+### GitHub repository variables
+
+Configure these non-secret repository variables after the dev apply:
+
+| Variable | Terraform source |
+|---|---|
+| `AWS_REGION` | `aws_region` |
+| `AWS_ROLE_ARN` | `github_deployment_role_arn` |
+| `ECR_REPOSITORY_URL` | `ecr_repository_url` |
+| `ECS_CLUSTER` | `ecs_cluster_name` |
+| `ECS_SERVICE` | `ecs_service_name` |
+| `ECS_TASK_FAMILY` | `ecs_task_definition_family` |
+| `APPLICATION_URL` | `application_url` |
+
+Read each value with, for example:
+
+```powershell
+terraform -chdir=environments/dev output -raw github_deployment_role_arn
+```
+
+Do not create `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` secrets.
+
+### Task-definition ownership
+
+Terraform owns the baseline task-definition configuration. The deployment workflow fetches the latest revision in that family, replaces only the `api` image with the current commit SHA, and registers a new revision. The ECS service ignores Terraform changes to its selected `task_definition`, so a later plan does not roll back a CI deployment to `manual-bootstrap`.
+
+When Terraform changes task CPU, memory, environment, secrets, logging, or another baseline property, it registers a newer baseline revision without moving the service. Run the application deployment after the infrastructure apply so the workflow copies that baseline, inserts the new SHA image, runs migrations, and updates the service.
+
+### Deployment failure behavior
+
+- A failed vulnerability gate prevents AWS authentication.
+- A failed migration leaves the service on its previous task definition.
+- An unhealthy service deployment is rolled back by the existing ECS circuit breaker.
+- The workflow waits for service stability and retries `/health` 12 times at ten-second intervals.
+- Deployment concurrency is serialized; an in-progress dev deployment is never cancelled by a newer commit.
+
+Production deployment is intentionally disabled. A later production workflow should use a separate role and a protected GitHub Environment with approval rules.
 
 ## Validation
 
@@ -171,4 +236,4 @@ Useful outputs include the ALB URL, ECR repository URL, ECS names, RDS endpoint,
 
 The main recurring costs are the NAT Gateway, ALB, Fargate tasks, RDS, CloudWatch ingestion and retention, Secrets Manager, and data transfer. Development uses smaller resources but retains the same network and security shape as production.
 
-Production should use a validated ACM certificate, HTTPS, strict RDS CA verification, deletion protection, and reviewed backup settings. Route 53, certificate creation, GitHub Actions, and GitHub OIDC are intentionally deferred.
+Production should use a validated ACM certificate, HTTPS, strict RDS CA verification, deletion protection, and reviewed backup settings. Route 53, certificate creation, and a protected production deployment workflow remain future work.
