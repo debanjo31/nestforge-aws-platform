@@ -87,3 +87,18 @@ resource "aws_s3_bucket_policy" "require_tls" {
 
   depends_on = [aws_s3_bucket_public_access_block.terraform_state]
 }
+
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = ["sts.amazonaws.com"]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  tags = {
+    Name    = "github-actions-oidc"
+    Purpose = "GitHub Actions workload identity"
+  }
+}
