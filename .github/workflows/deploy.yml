@@ -1,0 +1,224 @@
+name: Deploy dev
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nestforge-dev-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Verify and deploy dev
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      API_DIR: nestforge-api
+      TERRAFORM_DIR: api-infra-terraform
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      ECR_REPOSITORY_URL: ${{ vars.ECR_REPOSITORY_URL }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      APPLICATION_URL: ${{ vars.APPLICATION_URL }}
+      IMAGE_URI: ${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          for variable in AWS_REGION AWS_ROLE_ARN ECR_REPOSITORY_URL ECS_CLUSTER ECS_SERVICE ECS_TASK_FAMILY APPLICATION_URL; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "Missing required GitHub repository variable: $variable" >&2
+              exit 1
+            fi
+          done
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Enable Corepack
+        working-directory: ${{ env.API_DIR }}
+        run: |
+          corepack enable
+          pnpm --version
+
+      - name: Locate pnpm store
+        id: pnpm-store
+        working-directory: ${{ env.API_DIR }}
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-node-22-pnpm-${{ hashFiles('nestforge-api/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-22-pnpm-
+
+      - name: Install dependencies
+        working-directory: ${{ env.API_DIR }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: ${{ env.API_DIR }}
+        run: pnpm lint
+
+      - name: Run unit tests
+        working-directory: ${{ env.API_DIR }}
+        run: pnpm test
+
+      - name: Build NestJS application
+        working-directory: ${{ env.API_DIR }}
+        run: pnpm build
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.1
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terraform fmt -check -recursive
+
+      - name: Validate Terraform roots
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          for root in bootstrap environments/dev environments/prod; do
+            terraform -chdir="$root" init -backend=false -input=false -no-color
+            terraform -chdir="$root" validate -no-color
+          done
+
+      - name: Build Docker image
+        run: docker build --tag "$IMAGE_URI" "$API_DIR"
+
+      - name: Report HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_URI }}
+          format: table
+          severity: HIGH,CRITICAL
+          scanners: vuln
+          ignore-unfixed: false
+          exit-code: "0"
+
+      - name: Block CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_URI }}
+          format: table
+          severity: CRITICAL
+          scanners: vuln
+          ignore-unfixed: false
+          exit-code: "1"
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: nestforge-${{ github.run_id }}
+          mask-aws-account-id: true
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        with:
+          mask-password: true
+
+      - name: Push immutable image
+        run: docker push "$IMAGE_URI"
+
+      - name: Read ECS migration network
+        id: ecs-network
+        shell: bash
+        run: |
+          service_json="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" --region "$AWS_REGION" --output json)"
+
+          failures="$(jq -r '.failures | length' <<< "$service_json")"
+          if [[ "$failures" != "0" ]]; then
+            jq '.failures' <<< "$service_json" >&2
+            exit 1
+          fi
+
+          subnets="$(jq -r '.services[0].networkConfiguration.awsvpcConfiguration.subnets | join(",")' <<< "$service_json")"
+          security_groups="$(jq -r '.services[0].networkConfiguration.awsvpcConfiguration.securityGroups | join(",")' <<< "$service_json")"
+
+          if [[ -z "$subnets" || -z "$security_groups" ]]; then
+            echo "ECS service did not return migration subnets and security groups." >&2
+            exit 1
+          fi
+
+          echo "subnets=$subnets" >> "$GITHUB_OUTPUT"
+          echo "security-groups=$security_groups" >> "$GITHUB_OUTPUT"
+
+      - name: Render task definition with SHA image
+        id: task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
+        with:
+          task-definition-family: ${{ env.ECS_TASK_FAMILY }}
+          container-name: api
+          image: ${{ env.IMAGE_URI }}
+
+      - name: Run migrations and deploy ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
+        with:
+          task-definition: ${{ steps.task-definition.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          run-task: true
+          run-task-launch-type: FARGATE
+          run-task-subnets: ${{ steps.ecs-network.outputs.subnets }}
+          run-task-security-groups: ${{ steps.ecs-network.outputs.security-groups }}
+          run-task-assign-public-IP: DISABLED
+          run-task-container-overrides: >-
+            [{"name":"api","command":["node","./node_modules/typeorm/cli.js","-d","dist/database/data-source.js","migration:run"]}]
+          wait-for-task-stopped: true
+          wait-for-service-stability: true
+          wait-for-minutes: 20
+          wait-max-delay-seconds: 15
+
+      - name: Smoke test health endpoint
+        shell: bash
+        run: |
+          health_url="${APPLICATION_URL%/}/health"
+
+          for attempt in $(seq 1 12); do
+            echo "Health check attempt $attempt of 12: $health_url"
+            if response="$(curl --fail --silent --show-error --max-time 10 "$health_url" 2>&1)"; then
+              echo "$response"
+              exit 0
+            fi
+
+            echo "$response" >&2
+            if [[ "$attempt" -lt 12 ]]; then
+              sleep 10
+            fi
+          done
+
+          echo "Health check failed. Recent ECS service events:" >&2
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].events[0:5].[createdAt,message]' \
+            --output table || true
+          exit 1

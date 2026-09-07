@@ -183,3 +183,15 @@ variable "alb_deletion_protection" {
   type        = bool
   default     = false
 }
+
+variable "enable_github_deployment_role" {
+  description = "Create the dev GitHub Actions application deployment role."
+  type        = bool
+  default     = true
+}
+
+variable "github_oidc_subject" {
+  description = "Exact immutable GitHub OIDC subject allowed to deploy dev from main."
+  type        = string
+  default     = "repo:debanjo31@105072070/nestforge-aws-platform@1360437938:ref:refs/heads/main"
+}

@@ -34,4 +34,7 @@ module "platform" {
   database_skip_final_snapshot     = var.database_skip_final_snapshot
   database_ssl_reject_unauthorized = var.database_ssl_reject_unauthorized
   secret_recovery_window_in_days   = var.secret_recovery_window_in_days
+
+  enable_github_deployment_role = var.enable_github_deployment_role
+  github_oidc_subject           = var.github_oidc_subject
 }

@@ -36,3 +36,7 @@ database_skip_final_snapshot     = true
 log_retention_days           = 14
 enable_container_insights    = true
 secret_recovery_window_in_days = 0
+
+# This immutable subject is tied to debanjo31/nestforge-aws-platform and main.
+enable_github_deployment_role = true
+github_oidc_subject           = "repo:debanjo31@105072070/nestforge-aws-platform@1360437938:ref:refs/heads/main"
