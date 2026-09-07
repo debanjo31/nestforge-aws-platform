@@ -1,0 +1,38 @@
+project_name = "nestforge"
+environment  = "prod"
+aws_region   = "us-east-1"
+
+vpc_cidr                 = "10.1.0.0/16"
+public_subnet_cidrs      = ["10.1.1.0/24", "10.1.2.0/24"]
+private_app_subnet_cidrs = ["10.1.11.0/24", "10.1.12.0/24"]
+private_db_subnet_cidrs  = ["10.1.21.0/24", "10.1.22.0/24"]
+
+# Pin explicitly if AZ stability matters; empty dynamically selects two.
+availability_zones = []
+
+# Later CI/CD should pass a Git commit SHA tag such as sha-a84bc23.
+image_tag = "manual-bootstrap"
+
+# Production should set a validated regional ACM certificate ARN.
+certificate_arn      = null
+enable_http_listener = true
+
+task_cpu          = 512
+task_memory       = 1024
+ecs_desired_count = 2
+ecs_min_capacity  = 2
+ecs_max_capacity  = 6
+ecs_cpu_target    = 65
+
+database_engine_version          = "17"
+database_instance_class          = "db.t4g.small"
+database_allocated_storage       = 20
+database_max_allocated_storage   = 200
+database_multi_az                = true
+database_backup_retention_period = 30
+database_deletion_protection     = true
+database_skip_final_snapshot     = false
+
+log_retention_days             = 30
+enable_container_insights      = true
+secret_recovery_window_in_days = 30
