@@ -1,5 +1,0 @@
-aws_region   = "us-east-1"
-project_name = "nestforge"
-
-# Optional override. The default is nestforge-terraform-state-<aws-account-id>.
-# terraform_state_bucket_name = "nestforge-terraform-state-123456789012"
