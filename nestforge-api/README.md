@@ -334,6 +334,14 @@ To run migrations again without entering a container:
 docker compose run --rm migrations
 ```
 
+## CI/CD
+
+The repository-level GitHub Actions workflows validate pull requests and deploy the API to the existing dev ECS service after changes reach `main`. Delivery uses Node.js 22, Corepack, the pinned pnpm version, the existing Dockerfile, and immutable Git commit SHA image tags.
+
+The deployment runs `migration:run` from the newly built production image as one temporary Fargate task. The ECS service is updated only when that task exits successfully. Schema changes must therefore remain compatible with the currently running application during a rolling deployment: add compatible schema first, deploy code that supports both shapes, backfill when necessary, and remove old schema in a later release.
+
+GitHub authenticates to AWS through OIDC. No AWS access key is stored in GitHub, and the application workflow never runs `terraform apply`. See the [platform README](../README.md) and [infrastructure README](../api-infra-terraform/README.md) for the complete flow.
+
 ## Health Checks
 
 `GET /health` executes a real PostgreSQL ping through NestJS Terminus.

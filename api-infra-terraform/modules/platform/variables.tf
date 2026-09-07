@@ -188,3 +188,16 @@ variable "secret_recovery_window_in_days" {
   description = "Secrets Manager deletion recovery window."
   type        = number
 }
+
+variable "enable_github_deployment_role" {
+  description = "Whether to create the GitHub Actions application deployment role."
+  type        = bool
+  default     = false
+}
+
+variable "github_oidc_subject" {
+  description = "Exact GitHub OIDC subject allowed to assume the deployment role."
+  type        = string
+  default     = null
+  nullable    = true
+}

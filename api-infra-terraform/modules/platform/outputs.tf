@@ -86,3 +86,28 @@ output "security_group_ids" {
     rds = module.security.rds_security_group_id
   }
 }
+
+output "aws_region" {
+  description = "AWS region containing the environment."
+  value       = var.aws_region
+}
+
+output "ecs_task_definition_family" {
+  description = "ECS task definition family used by application deployments."
+  value       = module.ecs.task_definition_family
+}
+
+output "ecs_execution_role_arn" {
+  description = "ARN of the ECS task execution role."
+  value       = module.iam.ecs_execution_role_arn
+}
+
+output "ecs_task_role_arn" {
+  description = "ARN of the ECS application task role."
+  value       = module.iam.ecs_task_role_arn
+}
+
+output "github_deployment_role_arn" {
+  description = "ARN of the GitHub Actions deployment role, or null when disabled."
+  value       = module.iam.github_deployment_role_arn
+}

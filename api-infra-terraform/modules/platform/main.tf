@@ -42,8 +42,12 @@ module "secrets" {
 module "iam" {
   source = "../iam"
 
-  name_prefix            = local.name_prefix
-  application_secret_arn = module.secrets.secret_arn
+  name_prefix                   = local.name_prefix
+  application_secret_arn        = module.secrets.secret_arn
+  aws_region                    = var.aws_region
+  ecr_repository_arn            = module.ecr.repository_arn
+  enable_github_deployment_role = var.enable_github_deployment_role
+  github_oidc_subject           = var.github_oidc_subject
 }
 
 module "monitoring" {
