@@ -1,98 +1,372 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# NestForge API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Overview
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+NestForge API is a production-oriented NestJS task management backend. It
+provides JWT authentication, per-user task ownership, PostgreSQL persistence,
+TypeORM migrations, OpenAPI documentation, database-aware health checks, and a
+container workflow designed to grow toward ECS Fargate and RDS PostgreSQL.
 
-## Description
+There is no frontend in this project. The primary interactive API client is
+Swagger UI at `http://localhost:3000/api/docs`.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tech Stack
 
-## Project setup
+- Node.js 22 LTS
+- NestJS 11 and TypeScript
+- PostgreSQL 16
+- TypeORM 0.3 with migrations
+- Passport and JWT authentication
+- Argon2 password hashing
+- class-validator and class-transformer
+- Swagger/OpenAPI
+- NestJS Terminus health checks
+- Jest and Supertest
+- pnpm 10
+- Docker and Docker Compose
 
-```bash
-$ pnpm install
+## Architecture
+
+```text
+Client / Swagger UI
+        |
+        v
+NestJS controllers
+        |
+        v
+Application services
+        |
+        v
+TypeORM repositories
+        |
+        v
+PostgreSQL
 ```
 
-## Compile and run the project
+Controllers handle HTTP concerns, DTOs validate input, services contain
+business rules, and TypeORM repositories own persistence. Every task query is
+scoped to both the task ID and authenticated user ID to prevent cross-account
+access.
 
-```bash
-# development
-$ pnpm run start
+The Docker startup order is:
 
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+```text
+postgres (healthy) -> migrations (completed successfully) -> api
 ```
 
-## Run tests
+## Project Structure
 
-```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+```text
+nestforge-api/
+|-- src/
+|   |-- auth/
+|   |   |-- dto/
+|   |   |-- guards/
+|   |   |-- strategies/
+|   |   |-- auth.controller.ts
+|   |   |-- auth.module.ts
+|   |   `-- auth.service.ts
+|   |-- common/
+|   |   |-- decorators/
+|   |   |-- filters/
+|   |   `-- interfaces/
+|   |-- config/
+|   |   |-- configuration.ts
+|   |   |-- database-options.ts
+|   |   `-- env.validation.ts
+|   |-- database/
+|   |   |-- migrations/
+|   |   |-- data-source.ts
+|   |   `-- database.module.ts
+|   |-- health/
+|   |   |-- dto/
+|   |   |-- health.controller.ts
+|   |   |-- health.module.ts
+|   |   `-- health.service.ts
+|   |-- tasks/
+|   |   |-- dto/
+|   |   |-- entities/
+|   |   |-- enums/
+|   |   |-- tasks.controller.ts
+|   |   |-- tasks.module.ts
+|   |   `-- tasks.service.ts
+|   |-- users/
+|   |   |-- dto/
+|   |   |-- entities/
+|   |   |-- users.controller.ts
+|   |   |-- users.module.ts
+|   |   `-- users.service.ts
+|   |-- app.module.ts
+|   `-- main.ts
+|-- test/
+|   |-- jest-e2e.json
+|   |-- nestforge.e2e-spec.ts
+|   `-- setup-env.ts
+|-- .dockerignore
+|-- .env.example
+|-- .env.test.example
+|-- Dockerfile
+|-- docker-compose.yml
+|-- package.json
+`-- pnpm-lock.yaml
 ```
 
-## Deployment
+## Environment Variables
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Copy `.env.example` to `.env` for normal local development.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+| Variable | Required | Example | Purpose |
+| --- | --- | --- | --- |
+| `NODE_ENV` | No | `development` | Runtime environment; defaults to `development` |
+| `PORT` | No | `3000` | HTTP port; defaults to `3000` |
+| `DB_HOST` | Yes | `localhost` | PostgreSQL hostname |
+| `DB_PORT` | No | `5432` | PostgreSQL port; defaults to `5432` |
+| `DB_USERNAME` | Yes | `postgres` | PostgreSQL user |
+| `DB_PASSWORD` | Yes | `postgres` | PostgreSQL password |
+| `DB_NAME` | Yes | `nestforge` | PostgreSQL database |
+| `DB_SSL` | No | `false` | Enables TLS for PostgreSQL |
+| `DB_SSL_REJECT_UNAUTHORIZED` | No | `true` | Validates the database TLS certificate |
+| `JWT_SECRET` | Yes | long random string | JWT signing secret, minimum 16 characters |
+| `JWT_EXPIRES_IN` | No | `1h` | JWT lifetime; defaults to `1h` |
 
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+The application validates configuration at startup and exits immediately when
+required values are missing or invalid. Do not commit real secrets. For AWS,
+inject database credentials and the JWT secret from a managed secret store.
+
+## Local Development
+
+Prerequisites: Node.js 22+, Corepack/pnpm, Docker, and Docker Compose.
+
+```powershell
+Copy-Item .env.example .env
+pnpm install --frozen-lockfile
+docker compose up -d postgres
+pnpm migration:run
+pnpm start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+The API listens on `http://localhost:3000` by default.
 
-## Resources
+## PostgreSQL
 
-Check out a few resources that may come in handy when working with NestJS:
+Docker Compose exposes PostgreSQL on `localhost:5432` with these local-only
+credentials:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```text
+database: nestforge
+username: postgres
+password: postgres
+```
 
-## Support
+Start or stop only the database with:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+docker compose up -d postgres
+docker compose stop postgres
+```
 
-## Stay in touch
+Data persists in the `postgres_data` named volume. These credentials are for
+local development only and must not be used in production.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## TypeORM
 
-## License
+The Nest application and TypeORM CLI share database option construction from
+`src/config/database-options.ts`. Entities are registered explicitly.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+`synchronize` is always `false`. Schema changes must be represented by
+migrations.
+
+## TypeORM Migrations
+
+The CLI DataSource is `src/database/data-source.ts`. Development commands load
+environment variables from `.env`; the compiled Docker command uses
+`dist/database/data-source.js`.
+
+The initial migration creates:
+
+- the `users` table and unique email index;
+- the `task_status_enum` PostgreSQL enum;
+- the `tasks` table and cascading user foreign key;
+- task indexes on `userId`, `status`, and `(userId, status)`;
+- UUID and timestamp defaults.
+
+Useful migration commands:
+
+```bash
+pnpm migration:show
+pnpm migration:run
+pnpm migration:revert
+pnpm migration:create -- src/database/migrations/AddFeature
+pnpm migration:generate -- src/database/migrations/AddFeature
+```
+
+Review generated migrations before applying them. Production containers run
+compiled migrations through the one-shot `migrations` Compose service before
+the API starts.
+
+## Swagger
+
+Swagger UI:
+
+```text
+http://localhost:3000/api/docs
+```
+
+OpenAPI JSON:
+
+```text
+http://localhost:3000/api/docs-json
+```
+
+Suggested Swagger workflow:
+
+1. Call `POST /auth/register`.
+2. Call `POST /auth/login`.
+3. Copy `accessToken` from the login response.
+4. Click **Authorize** and enter the token.
+5. Exercise `/users/me` and `/tasks`.
+
+## Authentication
+
+Passwords are hashed with Argon2 and never returned by API response DTOs. A
+successful login returns:
+
+```json
+{
+  "accessToken": "<jwt>",
+  "user": {
+    "id": "<uuid>",
+    "email": "user@example.com",
+    "createdAt": "2026-09-07T12:00:00.000Z",
+    "updatedAt": "2026-09-07T12:00:00.000Z"
+  }
+}
+```
+
+Send the token as `Authorization: Bearer <jwt>`. `/users/me` and all `/tasks`
+routes require authentication.
+
+## API Endpoints
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| `POST` | `/auth/register` | No | Register a user |
+| `POST` | `/auth/login` | No | Log in and receive a JWT |
+| `GET` | `/users/me` | Bearer | Get the current user |
+| `POST` | `/tasks` | Bearer | Create an owned task |
+| `GET` | `/tasks` | Bearer | List owned tasks |
+| `GET` | `/tasks?status=TODO` | Bearer | Filter owned tasks by status |
+| `GET` | `/tasks/:id` | Bearer | Get an owned task |
+| `PATCH` | `/tasks/:id` | Bearer | Update an owned task |
+| `DELETE` | `/tasks/:id` | Bearer | Delete an owned task |
+| `GET` | `/health` | No | Check API and database health |
+
+Task lookups return `404` when a task does not exist or belongs to another
+user. This avoids leaking resource existence across accounts.
+
+## Testing
+
+Unit tests cover `AuthService` and `TasksService` behavior, including Argon2,
+invalid credentials, query ownership, updates, and deletion.
+
+The e2e suite uses a separate PostgreSQL database named `nestforge_test`. With
+the Compose PostgreSQL service running, create it once:
+
+```bash
+docker compose exec postgres createdb -U postgres nestforge_test
+```
+
+Then run:
+
+```bash
+pnpm test
+pnpm test:e2e
+pnpm test:cov
+```
+
+The e2e setup runs pending migrations and truncates only the `tasks` and
+`users` tables in `nestforge_test` before and after the suite. Override its
+defaults with real environment variables when the test database is elsewhere;
+see `.env.test.example`.
+
+## Docker
+
+The multi-stage Dockerfile:
+
+- uses Node.js 22 LTS on Debian slim;
+- enables pnpm through Corepack;
+- installs from `pnpm-lock.yaml` with `--frozen-lockfile`;
+- compiles the NestJS application;
+- prunes development dependencies;
+- runs as the non-root `node` user;
+- includes an HTTP health check against `/health`.
+
+Build the API image directly with:
+
+```bash
+docker build -t nestforge-api:local .
+```
+
+## Docker Compose
+
+Start the complete stack:
+
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose logs -f api
+```
+
+Compose waits for `pg_isready`, runs migrations in a one-shot service, waits for
+that service to exit successfully, and only then starts the API. No sleep-based
+startup scripts are used.
+
+Stop the stack while retaining PostgreSQL data:
+
+```bash
+docker compose down
+```
+
+To run migrations again without entering a container:
+
+```bash
+docker compose run --rm migrations
+```
+
+## Health Checks
+
+`GET /health` executes a real PostgreSQL ping through NestJS Terminus.
+
+Healthy response:
+
+```json
+{
+  "status": "ok",
+  "database": "connected",
+  "timestamp": "2026-09-07T12:00:00.000Z"
+}
+```
+
+If PostgreSQL cannot be reached, the endpoint returns HTTP `503`. PostgreSQL
+uses `pg_isready`; the API container health check calls `/health`.
+
+## Useful Commands
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | Install the locked dependency graph |
+| `pnpm start:dev` | Start in watch mode |
+| `pnpm build` | Compile to `dist/` |
+| `pnpm start:prod` | Run the compiled API |
+| `pnpm format` | Format TypeScript files |
+| `pnpm lint` | Check source and tests with ESLint |
+| `pnpm lint:fix` | Apply safe ESLint fixes |
+| `pnpm test` | Run unit tests |
+| `pnpm test:e2e` | Run PostgreSQL e2e tests |
+| `pnpm test:cov` | Run unit tests with coverage |
+| `pnpm migration:show` | Show migration status |
+| `pnpm migration:run` | Apply pending migrations |
+| `pnpm migration:revert` | Revert the latest migration |
+| `docker compose up --build -d` | Build and start the complete stack |
+| `docker compose run --rm migrations` | Run migrations on demand |
+| `docker compose down` | Stop the stack and retain data |
