@@ -1,8 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { join } from 'node:path';
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
-import { Task } from '../tasks/entities/task.entity';
-import { User } from '../users/entities/user.entity';
+import { Task } from '../modules/tasks/entities/task.entity';
+import { User } from '../modules/users/entities/user.entity';
 
 export interface DatabaseEnvironment {
   DB_HOST?: string;
