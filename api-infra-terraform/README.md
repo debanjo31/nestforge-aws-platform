@@ -173,7 +173,7 @@ Images are tagged with the full Git commit SHA. A retry first checks ECR and reu
 
 ### Apply the CI/CD infrastructure
 
-The current GitHub default branch is `master`; rename it to `main` before using the deployment workflow. Then review and apply the shared identity provider before the environment role:
+The GitHub default branch is `main`. Review and apply the shared identity provider before the environment role:
 
 ```powershell
 terraform -chdir=bootstrap plan -out=github-oidc.tfplan
