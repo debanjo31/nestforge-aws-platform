@@ -27,6 +27,11 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 
+# The running API and migration task invoke Node directly; npm is unnecessary
+# in the runtime image and increases its vulnerability surface.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+  && rm -f /usr/local/bin/npm /usr/local/bin/npx
+
 USER node
 EXPOSE 3000
 
