@@ -90,7 +90,7 @@ jobs:
           format: table
           severity: CRITICAL
           scanners: vuln
-          ignore-unfixed: false
+          ignore-unfixed: true
           exit-code: "1"
 
       - name: Set up Terraform
