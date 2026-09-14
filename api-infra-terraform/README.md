@@ -167,6 +167,10 @@ sub = repo:debanjo31@105072070/nestforge-aws-platform@1360437938:ref:refs/heads/
 
 There are no AWS access key secrets. Pull requests receive read-only repository permissions and do not authenticate to AWS. The deployment workflow receives `id-token: write` only so it can exchange a GitHub OIDC token for a short-lived AWS role session.
 
+Both workflows print all HIGH and CRITICAL Trivy findings, including findings without a vendor fix. The blocking scan fails on fixable CRITICAL findings. HIGH findings and unfixed CRITICAL findings remain visible for review without permanently blocking releases that cannot yet be remediated. The runtime image removes npm because the API and migration command invoke Node directly, reducing the shipped attack surface.
+
+Images are tagged with the full Git commit SHA. A retry first checks ECR and reuses the existing immutable SHA image when present, so rerunning a failed deployment does not conflict with ECR tag immutability.
+
 ### Apply the CI/CD infrastructure
 
 The current GitHub default branch is `master`; rename it to `main` before using the deployment workflow. Then review and apply the shared identity provider before the environment role:
