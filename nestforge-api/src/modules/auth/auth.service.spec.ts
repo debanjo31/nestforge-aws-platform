@@ -16,6 +16,8 @@ describe('AuthService', () => {
     return {
       id: '04d3c56c-10f5-4bca-8e8a-cf1309e2a278',
       email: 'user@example.com',
+      displayName: null,
+      bio: null,
       passwordHash,
       tasks: [],
       createdAt: now,
@@ -48,6 +50,8 @@ describe('AuthService', () => {
     expect(result).toEqual({
       id: expect.any(String),
       email: 'user@example.com',
+      displayName: null,
+      bio: null,
       createdAt: now,
       updatedAt: now,
     });
