@@ -9,7 +9,13 @@ import { TaskStatus } from '../src/modules/tasks/enums/task-status.enum';
 
 interface AuthResponseBody {
   accessToken: string;
-  user: { id: string; email: string; passwordHash?: string };
+  user: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    bio: string | null;
+    passwordHash?: string;
+  };
 }
 
 interface TaskResponseBody {
@@ -120,8 +126,45 @@ describe('NestForge API (e2e)', () => {
     expect(body).toMatchObject({
       id: firstUserId,
       email: firstCredentials.email,
+      displayName: null,
+      bio: null,
     });
     expect(body.passwordHash).toBeUndefined();
+  });
+
+  it('updates the authenticated user profile', async () => {
+    const response = await request(app.getHttpServer())
+      .patch('/users/me')
+      .auth(firstToken, { type: 'bearer' })
+      .send({
+        email: '  UPDATED@EXAMPLE.COM  ',
+        displayName: '  Ada Lovelace  ',
+        bio: '  Building reliable APIs.  ',
+      })
+      .expect(200);
+    const body = response.body as AuthResponseBody['user'];
+
+    expect(body).toMatchObject({
+      id: firstUserId,
+      email: 'updated@example.com',
+      displayName: 'Ada Lovelace',
+      bio: 'Building reliable APIs.',
+    });
+    expect(body.passwordHash).toBeUndefined();
+  });
+
+  it('rejects invalid profile data', async () => {
+    await request(app.getHttpServer())
+      .patch('/users/me')
+      .auth(firstToken, { type: 'bearer' })
+      .send({ displayName: '   ' })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .patch('/users/me')
+      .auth(firstToken, { type: 'bearer' })
+      .send({ email: null })
+      .expect(400);
   });
 
   it('creates a task for the authenticated user', async () => {
@@ -196,6 +239,13 @@ describe('NestForge API (e2e)', () => {
       .post('/auth/register')
       .send(secondCredentials)
       .expect(201);
+
+    await request(app.getHttpServer())
+      .patch('/users/me')
+      .auth(firstToken, { type: 'bearer' })
+      .send({ email: secondCredentials.email })
+      .expect(409);
+
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
       .send(secondCredentials)

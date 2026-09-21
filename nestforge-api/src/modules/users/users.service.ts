@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { User } from './entities/user.entity';
 
@@ -56,5 +57,29 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
     return UserResponseDto.fromEntity(user);
+  }
+
+  async updateProfile(
+    id: string,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    this.usersRepository.merge(user, updateProfileDto);
+
+    try {
+      const updatedUser = await this.usersRepository.save(user);
+      return UserResponseDto.fromEntity(updatedUser);
+    } catch (error) {
+      if (hasPostgresCode(error, '23505')) {
+        throw new ConflictException(
+          'An account with this email already exists',
+        );
+      }
+      throw error;
+    }
   }
 }

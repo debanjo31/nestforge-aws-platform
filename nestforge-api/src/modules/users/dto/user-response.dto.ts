@@ -8,6 +8,12 @@ export class UserResponseDto {
   @ApiProperty({ example: 'user@example.com' })
   email: string;
 
+  @ApiProperty({ example: 'Ada Lovelace', nullable: true })
+  displayName: string | null;
+
+  @ApiProperty({ example: 'Building reliable APIs.', nullable: true })
+  bio: string | null;
+
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt: Date;
 
@@ -18,6 +24,8 @@ export class UserResponseDto {
     return {
       id: user.id,
       email: user.email,
+      displayName: user.displayName,
+      bio: user.bio,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
