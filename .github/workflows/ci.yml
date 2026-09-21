@@ -18,6 +18,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: nestforge_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nestforge_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       API_DIR: nestforge-api
       TERRAFORM_DIR: api-infra-terraform
@@ -65,6 +80,10 @@ jobs:
       - name: Run unit tests
         working-directory: ${{ env.API_DIR }}
         run: pnpm test
+
+      - name: Run end-to-end tests
+        working-directory: ${{ env.API_DIR }}
+        run: pnpm test:e2e
 
       - name: Build NestJS application
         working-directory: ${{ env.API_DIR }}
