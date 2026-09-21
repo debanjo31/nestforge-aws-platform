@@ -4,7 +4,7 @@ NestForge is a NestJS task-management API deployed to AWS ECS Fargate with Terra
 
 ## Repositories
 
-- [`nestforge-api`](nestforge-api/) contains the NestJS API, tests, TypeORM migrations, and Docker image.
+- [`nestforge-api`](nestforge-api/) contains the NestJS API, tests, TypeORM migrations, Prometheus instrumentation, k6 scenarios, and Docker image.
 - [`api-infra-terraform`](api-infra-terraform/) contains the AWS networking, ECS, RDS, ECR, IAM, monitoring, and state configuration.
 - [`.github/workflows`](.github/workflows/) contains pull-request CI and the dev deployment workflow.
 
@@ -37,5 +37,9 @@ flowchart LR
 ```
 
 Pull requests run validation without AWS credentials. A merge to `main` uses a short-lived OIDC session to push an immutable commit-SHA image, run migrations once, deploy the ECS service, and verify `/health`. Terraform is validated in CI but is never applied by the application deployment workflow.
+
+The API exposes application and Node.js metrics at `/metrics`. Local Docker
+Compose runs a Prometheus server for scraping and exploration, while the k6
+smoke and load scenarios can target either the local stack or the dev ALB.
 
 See the component READMEs for local development, infrastructure setup, and the one-time GitHub repository configuration.
