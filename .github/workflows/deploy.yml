@@ -104,7 +104,19 @@ jobs:
         working-directory: ${{ env.TERRAFORM_DIR }}
         run: |
           for root in bootstrap environments/dev environments/prod; do
-            terraform -chdir="$root" init -backend=false -input=false -no-color
+            for attempt in 1 2 3; do
+              if terraform -chdir="$root" init -backend=false -input=false -no-color; then
+                break
+              fi
+
+              if [[ "$attempt" -eq 3 ]]; then
+                echo "Terraform init failed for $root after $attempt attempts." >&2
+                exit 1
+              fi
+
+              echo "Terraform init failed for $root (attempt $attempt). Retrying..." >&2
+              sleep 5
+            done
             terraform -chdir="$root" validate -no-color
           done
 
