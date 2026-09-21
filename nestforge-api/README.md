@@ -272,6 +272,7 @@ and kept unique. Send `null` for `displayName` or `bio` to clear that field.
 | `PATCH`  | `/tasks/:id`         | Bearer | Update an owned task               |
 | `DELETE` | `/tasks/:id`         | Bearer | Delete an owned task               |
 | `GET`    | `/health`            | No     | Check API and database health      |
+| `GET`    | `/metrics`           | No     | Export Prometheus metrics          |
 
 Task lookups return `404` when a task does not exist or belongs to another
 user. This avoids leaking resource existence across accounts.
@@ -332,7 +333,16 @@ docker compose logs -f api
 
 Compose waits for `pg_isready`, runs migrations in a one-shot service, waits for
 that service to exit successfully, and only then starts the API. No sleep-based
-startup scripts are used.
+startup scripts are used. Prometheus then waits for the API health check before
+starting and stores seven days of local metrics on a named volume.
+
+The API host port defaults to `3000`. If that port is occupied, override it
+without changing container-to-container communication:
+
+```powershell
+$env:API_PORT = "3001"
+docker compose up --build -d
+```
 
 Stop the stack while retaining PostgreSQL data:
 
@@ -371,6 +381,63 @@ Healthy response:
 If PostgreSQL cannot be reached, the endpoint returns HTTP `503`. PostgreSQL
 uses `pg_isready`; the API container health check calls `/health`.
 
+## Prometheus Metrics
+
+`GET /metrics` emits Prometheus text exposition data using the maintained
+`@prometheus-io/client`. It includes Node.js process/runtime metrics and these
+application metrics:
+
+- `nestforge_http_requests_total` — request count by method, route template,
+  and status code;
+- `nestforge_http_request_duration_seconds` — request latency histogram;
+- `nestforge_http_active_requests` — currently executing requests.
+
+Route templates are used instead of raw URLs to keep label cardinality bounded.
+The local Prometheus service scrapes `api:3000/metrics` every 15 seconds.
+
+Open the Prometheus UI at `http://localhost:9090`. Useful starter queries:
+
+```promql
+sum(rate(nestforge_http_requests_total[5m])) by (route, status_code)
+histogram_quantile(0.95, sum(rate(nestforge_http_request_duration_seconds_bucket[5m])) by (le, route))
+nestforge_http_active_requests
+```
+
+The same `/metrics` endpoint is included in the production image deployed to
+ECS. The Compose Prometheus server is a local development component; deploying
+a persistent AWS collector such as Amazon Managed Service for Prometheus would
+be a separate infrastructure decision.
+
+## k6 Performance Tests
+
+The `load-tests` directory contains two k6 scenarios:
+
+- `smoke.js` checks `/health` and `/metrics` once and requires every check to
+  pass;
+- `load.js` creates a test account, logs in, ramps to 10 virtual users, and
+  exercises profile, task-list, and health reads for one minute.
+
+Run them through the pinned k6 container—no host installation is required:
+
+```powershell
+docker compose --profile load-test run --rm k6 run /scripts/smoke.js
+docker compose --profile load-test run --rm k6 run /scripts/load.js
+```
+
+The load test fails when the error rate reaches 1%, checks fall to 99% or less,
+p95 latency reaches 500 ms, or p99 latency reaches 1 second. To test the AWS dev
+endpoint instead of the local API:
+
+```powershell
+$env:K6_BASE_URL = "http://nestforge-dev-alb-47439675.us-east-1.elb.amazonaws.com"
+docker compose --profile load-test run --rm --no-deps k6 run /scripts/smoke.js
+docker compose --profile load-test run --rm --no-deps k6 run /scripts/load.js
+```
+
+Load tests create one uniquely named test user per run. Use the smoke scenario
+for routine deployment checks and run the load scenario deliberately because it
+generates sustained traffic and database activity.
+
 ## Useful Commands
 
 | Command                              | Purpose                             |
@@ -389,5 +456,7 @@ uses `pg_isready`; the API container health check calls `/health`.
 | `pnpm migration:run`                 | Apply pending migrations            |
 | `pnpm migration:revert`              | Revert the latest migration         |
 | `docker compose up --build -d`       | Build and start the complete stack  |
+| `docker compose --profile load-test run --rm k6 run /scripts/smoke.js` | Run k6 smoke thresholds |
+| `docker compose --profile load-test run --rm k6 run /scripts/load.js` | Run the one-minute k6 load test |
 | `docker compose run --rm migrations` | Run migrations on demand            |
 | `docker compose down`                | Stop the stack and retain data      |

@@ -295,4 +295,19 @@ describe('NestForge API (e2e)', () => {
     });
     expect(response.body).toHaveProperty('timestamp');
   });
+
+  it('exposes Prometheus application and Node.js metrics', async () => {
+    await request(app.getHttpServer()).get('/health').expect(200);
+
+    const response = await request(app.getHttpServer())
+      .get('/metrics')
+      .expect(200);
+
+    expect(response.headers['content-type']).toContain('text/plain');
+    expect(response.text).toContain('nestforge_http_requests_total');
+    expect(response.text).toContain('route="/health"');
+    expect(response.text).toContain(
+      'nestforge_nodejs_process_cpu_user_seconds_total',
+    );
+  });
 });

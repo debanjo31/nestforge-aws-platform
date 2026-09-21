@@ -6,8 +6,8 @@ x-api-environment: &api-environment
   DB_USERNAME: postgres
   DB_PASSWORD: postgres
   DB_NAME: nestforge
-  DB_SSL: "false"
-  DB_SSL_REJECT_UNAUTHORIZED: "true"
+  DB_SSL: 'false'
+  DB_SSL_REJECT_UNAUTHORIZED: 'true'
   JWT_SECRET: local-development-only-change-me
   JWT_EXPIRES_IN: 1h
 
@@ -19,11 +19,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d nestforge"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d nestforge']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -35,16 +35,16 @@ services:
     environment: *api-environment
     command:
       [
-        "node",
-        "./node_modules/typeorm/cli.js",
-        "-d",
-        "dist/database/data-source.js",
-        "migration:run",
+        'node',
+        './node_modules/typeorm/cli.js',
+        '-d',
+        'dist/database/data-source.js',
+        'migration:run',
       ]
     depends_on:
       postgres:
         condition: service_healthy
-    restart: "no"
+    restart: 'no'
 
   api:
     image: nestforge-api:local
@@ -53,7 +53,7 @@ services:
       dockerfile: Dockerfile
     environment: *api-environment
     ports:
-      - "3000:3000"
+      - '${API_PORT:-3000}:3000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,9 +62,9 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "node",
-          "-e",
+          'CMD',
+          'node',
+          '-e',
           "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
       interval: 30s
@@ -73,5 +73,34 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  k6:
+    image: grafana/k6:2.2.0
+    profiles: ['load-test']
+    environment:
+      BASE_URL: ${K6_BASE_URL:-http://api:3000}
+    volumes:
+      - ./load-tests:/scripts:ro
+    command: run /scripts/load.js
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  prometheus_data:
