@@ -3,9 +3,10 @@
 ## Overview
 
 NestForge API is a production-oriented NestJS task management backend. It
-provides JWT authentication, per-user task ownership, PostgreSQL persistence,
-TypeORM migrations, OpenAPI documentation, database-aware health checks, and a
-container workflow designed to grow toward ECS Fargate and RDS PostgreSQL.
+provides JWT authentication, editable user profiles, per-user task ownership,
+PostgreSQL persistence, TypeORM migrations, OpenAPI documentation,
+database-aware health checks, and a container workflow designed to grow toward
+ECS Fargate and RDS PostgreSQL.
 
 There is no frontend in this project. The primary interactive API client is
 Swagger UI at `http://localhost:3000/api/docs`.
@@ -116,19 +117,19 @@ nestforge-api/
 
 Copy `.env.example` to `.env` for normal local development.
 
-| Variable | Required | Example | Purpose |
-| --- | --- | --- | --- |
-| `NODE_ENV` | No | `development` | Runtime environment; defaults to `development` |
-| `PORT` | No | `3000` | HTTP port; defaults to `3000` |
-| `DB_HOST` | Yes | `localhost` | PostgreSQL hostname |
-| `DB_PORT` | No | `5432` | PostgreSQL port; defaults to `5432` |
-| `DB_USERNAME` | Yes | `postgres` | PostgreSQL user |
-| `DB_PASSWORD` | Yes | `postgres` | PostgreSQL password |
-| `DB_NAME` | Yes | `nestforge` | PostgreSQL database |
-| `DB_SSL` | No | `false` | Enables TLS for PostgreSQL |
-| `DB_SSL_REJECT_UNAUTHORIZED` | No | `true` | Validates the database TLS certificate |
-| `JWT_SECRET` | Yes | long random string | JWT signing secret, minimum 16 characters |
-| `JWT_EXPIRES_IN` | No | `1h` | JWT lifetime; defaults to `1h` |
+| Variable                     | Required | Example            | Purpose                                        |
+| ---------------------------- | -------- | ------------------ | ---------------------------------------------- |
+| `NODE_ENV`                   | No       | `development`      | Runtime environment; defaults to `development` |
+| `PORT`                       | No       | `3000`             | HTTP port; defaults to `3000`                  |
+| `DB_HOST`                    | Yes      | `localhost`        | PostgreSQL hostname                            |
+| `DB_PORT`                    | No       | `5432`             | PostgreSQL port; defaults to `5432`            |
+| `DB_USERNAME`                | Yes      | `postgres`         | PostgreSQL user                                |
+| `DB_PASSWORD`                | Yes      | `postgres`         | PostgreSQL password                            |
+| `DB_NAME`                    | Yes      | `nestforge`        | PostgreSQL database                            |
+| `DB_SSL`                     | No       | `false`            | Enables TLS for PostgreSQL                     |
+| `DB_SSL_REJECT_UNAUTHORIZED` | No       | `true`             | Validates the database TLS certificate         |
+| `JWT_SECRET`                 | Yes      | long random string | JWT signing secret, minimum 16 characters      |
+| `JWT_EXPIRES_IN`             | No       | `1h`               | JWT lifetime; defaults to `1h`                 |
 
 The application validates configuration at startup and exits immediately when
 required values are missing or invalid. Do not commit real secrets. For AWS,
@@ -191,6 +192,9 @@ The initial migration creates:
 - task indexes on `userId`, `status`, and `(userId, status)`;
 - UUID and timestamp defaults.
 
+The user-profile migration adds nullable `displayName` and `bio` fields so it
+is safe to apply for existing accounts.
+
 Useful migration commands:
 
 ```bash
@@ -238,6 +242,8 @@ successful login returns:
   "user": {
     "id": "<uuid>",
     "email": "user@example.com",
+    "displayName": null,
+    "bio": null,
     "createdAt": "2026-09-07T12:00:00.000Z",
     "updatedAt": "2026-09-07T12:00:00.000Z"
   }
@@ -247,28 +253,34 @@ successful login returns:
 Send the token as `Authorization: Bearer <jwt>`. `/users/me` and all `/tasks`
 routes require authentication.
 
+Update a profile with `PATCH /users/me`. The endpoint accepts any combination
+of `email`, `displayName`, and `bio`. Email addresses are trimmed, lowercased,
+and kept unique. Send `null` for `displayName` or `bio` to clear that field.
+
 ## API Endpoints
 
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| `POST` | `/auth/register` | No | Register a user |
-| `POST` | `/auth/login` | No | Log in and receive a JWT |
-| `GET` | `/users/me` | Bearer | Get the current user |
-| `POST` | `/tasks` | Bearer | Create an owned task |
-| `GET` | `/tasks` | Bearer | List owned tasks |
-| `GET` | `/tasks?status=TODO` | Bearer | Filter owned tasks by status |
-| `GET` | `/tasks/:id` | Bearer | Get an owned task |
-| `PATCH` | `/tasks/:id` | Bearer | Update an owned task |
-| `DELETE` | `/tasks/:id` | Bearer | Delete an owned task |
-| `GET` | `/health` | No | Check API and database health |
+| Method   | Path                 | Auth   | Description                        |
+| -------- | -------------------- | ------ | ---------------------------------- |
+| `POST`   | `/auth/register`     | No     | Register a user                    |
+| `POST`   | `/auth/login`        | No     | Log in and receive a JWT           |
+| `GET`    | `/users/me`          | Bearer | Get the current user               |
+| `PATCH`  | `/users/me`          | Bearer | Update email, display name, or bio |
+| `POST`   | `/tasks`             | Bearer | Create an owned task               |
+| `GET`    | `/tasks`             | Bearer | List owned tasks                   |
+| `GET`    | `/tasks?status=TODO` | Bearer | Filter owned tasks by status       |
+| `GET`    | `/tasks/:id`         | Bearer | Get an owned task                  |
+| `PATCH`  | `/tasks/:id`         | Bearer | Update an owned task               |
+| `DELETE` | `/tasks/:id`         | Bearer | Delete an owned task               |
+| `GET`    | `/health`            | No     | Check API and database health      |
 
 Task lookups return `404` when a task does not exist or belongs to another
 user. This avoids leaking resource existence across accounts.
 
 ## Testing
 
-Unit tests cover `AuthService` and `TasksService` behavior, including Argon2,
-invalid credentials, query ownership, updates, and deletion.
+Unit tests cover `AuthService`, `UsersService`, and `TasksService` behavior,
+including Argon2, invalid credentials, profile updates, duplicate emails,
+query ownership, task updates, and deletion.
 
 The e2e suite uses a separate PostgreSQL database named `nestforge_test`. With
 the Compose PostgreSQL service running, create it once:
@@ -361,21 +373,21 @@ uses `pg_isready`; the API container health check calls `/health`.
 
 ## Useful Commands
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm install --frozen-lockfile` | Install the locked dependency graph |
-| `pnpm start:dev` | Start in watch mode |
-| `pnpm build` | Compile to `dist/` |
-| `pnpm start:prod` | Run the compiled API |
-| `pnpm format` | Format TypeScript files |
-| `pnpm lint` | Check source and tests with ESLint |
-| `pnpm lint:fix` | Apply safe ESLint fixes |
-| `pnpm test` | Run unit tests |
-| `pnpm test:e2e` | Run PostgreSQL e2e tests |
-| `pnpm test:cov` | Run unit tests with coverage |
-| `pnpm migration:show` | Show migration status |
-| `pnpm migration:run` | Apply pending migrations |
-| `pnpm migration:revert` | Revert the latest migration |
-| `docker compose up --build -d` | Build and start the complete stack |
-| `docker compose run --rm migrations` | Run migrations on demand |
-| `docker compose down` | Stop the stack and retain data |
+| Command                              | Purpose                             |
+| ------------------------------------ | ----------------------------------- |
+| `pnpm install --frozen-lockfile`     | Install the locked dependency graph |
+| `pnpm start:dev`                     | Start in watch mode                 |
+| `pnpm build`                         | Compile to `dist/`                  |
+| `pnpm start:prod`                    | Run the compiled API                |
+| `pnpm format`                        | Format TypeScript files             |
+| `pnpm lint`                          | Check source and tests with ESLint  |
+| `pnpm lint:fix`                      | Apply safe ESLint fixes             |
+| `pnpm test`                          | Run unit tests                      |
+| `pnpm test:e2e`                      | Run PostgreSQL e2e tests            |
+| `pnpm test:cov`                      | Run unit tests with coverage        |
+| `pnpm migration:show`                | Show migration status               |
+| `pnpm migration:run`                 | Apply pending migrations            |
+| `pnpm migration:revert`              | Revert the latest migration         |
+| `docker compose up --build -d`       | Build and start the complete stack  |
+| `docker compose run --rm migrations` | Run migrations on demand            |
+| `docker compose down`                | Stop the stack and retain data      |
