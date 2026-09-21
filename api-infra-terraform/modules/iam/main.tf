@@ -145,7 +145,7 @@ data "aws_iam_policy_document" "github_deployment" {
     sid       = "ReadTaskDefinition"
     effect    = "Allow"
     actions   = ["ecs:DescribeTaskDefinition"]
-    resources = [local.ecs_task_definition_arn]
+    resources = ["*"]
   }
 
   statement {
