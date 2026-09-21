@@ -159,6 +159,12 @@ describe('NestForge API (e2e)', () => {
       .auth(firstToken, { type: 'bearer' })
       .send({ displayName: '   ' })
       .expect(400);
+
+    await request(app.getHttpServer())
+      .patch('/users/me')
+      .auth(firstToken, { type: 'bearer' })
+      .send({ email: null })
+      .expect(400);
   });
 
   it('creates a task for the authenticated user', async () => {
