@@ -142,6 +142,19 @@ data "aws_iam_policy_document" "github_deployment" {
   }
 
   statement {
+    sid       = "TagRegisteredTaskDefinition"
+    effect    = "Allow"
+    actions   = ["ecs:TagResource"]
+    resources = [local.ecs_task_definition_arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:CreateAction"
+      values   = ["RegisterTaskDefinition"]
+    }
+  }
+
+  statement {
     sid       = "ReadTaskDefinition"
     effect    = "Allow"
     actions   = ["ecs:DescribeTaskDefinition"]
