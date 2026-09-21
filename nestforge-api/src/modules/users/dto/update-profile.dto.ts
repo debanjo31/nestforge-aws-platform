@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
-  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -14,7 +13,7 @@ export class UpdateProfileDto {
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsEmail()
   @MaxLength(320)
   email?: string;
