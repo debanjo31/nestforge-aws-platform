@@ -334,7 +334,9 @@ docker compose logs -f api
 Compose waits for `pg_isready`, runs migrations in a one-shot service, waits for
 that service to exit successfully, and only then starts the API. No sleep-based
 startup scripts are used. Prometheus then waits for the API health check before
-starting and stores seven days of local metrics on a named volume.
+starting and stores seven days of local metrics on a named volume. Grafana is
+automatically provisioned with Prometheus as its datasource and opens the
+NestForge dashboard by default.
 
 The API host port defaults to `3000`. If that port is occupied, override it
 without changing container-to-container communication:
@@ -395,7 +397,18 @@ application metrics:
 Route templates are used instead of raw URLs to keep label cardinality bounded.
 The local Prometheus service scrapes `api:3000/metrics` every 15 seconds.
 
-Open the Prometheus UI at `http://localhost:9090`. Useful starter queries:
+Open the Grafana observability dashboard at `http://localhost:3001`. Anonymous
+local access is read-only, so no login is required. The dashboard is provisioned
+from source control and includes API scrape status, request and error rates,
+p50/p95/p99 latency, active requests, and Node.js CPU and memory. Its default
+window is the last 15 minutes and it refreshes every 10 seconds.
+
+Grafana data is retained in the `grafana_data` volume. Set `GRAFANA_PORT` if
+port `3001` is occupied. Set `GRAFANA_ADMIN_PASSWORD` before enabling the login
+form or exposing this local service beyond your machine.
+
+The lower-level Prometheus query UI remains available at
+`http://localhost:9090`. Useful starter queries:
 
 ```promql
 sum(rate(nestforge_http_requests_total[5m])) by (route, status_code)
@@ -455,7 +468,7 @@ generates sustained traffic and database activity.
 | `pnpm migration:show`                | Show migration status               |
 | `pnpm migration:run`                 | Apply pending migrations            |
 | `pnpm migration:revert`              | Revert the latest migration         |
-| `docker compose up --build -d`       | Build and start the complete stack  |
+| `docker compose up --build -d`       | Start API, Prometheus, and Grafana  |
 | `docker compose --profile load-test run --rm k6 run /scripts/smoke.js` | Run k6 smoke thresholds |
 | `docker compose --profile load-test run --rm k6 run /scripts/load.js` | Run the one-minute k6 load test |
 | `docker compose run --rm migrations` | Run migrations on demand            |
