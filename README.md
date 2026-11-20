@@ -18,6 +18,8 @@ flowchart LR
     ECR[Amazon ECR] --> ECS
     Secrets[Secrets Manager] --> ECS
     ECS --> Logs[CloudWatch Logs]
+    API[Local API] --> Prometheus[Local Prometheus]
+    Prometheus --> Grafana[Local Grafana dashboard]
 ```
 
 The ALB is public. ECS tasks and RDS run in separate private subnet tiers, and security groups allow only ALB-to-ECS and ECS-to-RDS application traffic.
@@ -39,7 +41,8 @@ flowchart LR
 Pull requests run validation without AWS credentials. A merge to `main` uses a short-lived OIDC session to push an immutable commit-SHA image, run migrations once, deploy the ECS service, and verify `/health`. Terraform is validated in CI but is never applied by the application deployment workflow.
 
 The API exposes application and Node.js metrics at `/metrics`. Local Docker
-Compose runs a Prometheus server for scraping and exploration, while the k6
-smoke and load scenarios can target either the local stack or the dev ALB.
+Compose runs Prometheus and a provisioned Grafana dashboard at
+`http://localhost:3001`, while the k6 smoke and load scenarios can target
+either the local stack or the dev ALB.
 
 See the component READMEs for local development, infrastructure setup, and the one-time GitHub repository configuration.
